@@ -18,13 +18,12 @@ jobs:
       MAVEN_OPTS: -Xmx3200m
 
     steps:
-      - run: apt-get update && apt install -y wget maven libglu1 && \
-             wget https://github.com/MiniZinc/MiniZincIDE/releases/download/2.3.2/MiniZincIDE-2.3.2-bundle-linux-x86_64.tgz && \
-             mv MiniZincIDE-2.3.2-bundle-linux-x86_64.tgz /minizinc.tgz && \
-             cd / && \
-             tar -xzvf /minizinc.tgz && \
-             mv /MiniZincIDE-2.3.2-bundle-linux /minizinc && \
-             rm /minizinc.tgz
+      - run: sudo apt-get update && sudo apt install -y wget maven libglu1 && \
+             cd && wget https://github.com/MiniZinc/MiniZincIDE/releases/download/2.3.2/MiniZincIDE-2.3.2-bundle-linux-x86_64.tgz && \
+             mv MiniZincIDE-2.3.2-bundle-linux-x86_64.tgz minizinc.tgz && \
+             tar -xzvf minizinc.tgz && \
+             mv MiniZincIDE-2.3.2-bundle-linux minizinc && \
+             rm minizinc.tgz
 
       - checkout
 
