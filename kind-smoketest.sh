@@ -37,6 +37,9 @@ main() {
     export KUBECONFIG
     # TODO: invoke your tests here
     # teardown will happen automatically on exit
+
+
+    kubectl cluster-info
 }
 
 main
