@@ -44,6 +44,7 @@ main() {
     kubectl version
     kubectl cluster-info
 
+    echo "Currently in branch $CIRCLE_BRANCH"
     docker run -it lalithsuresh/dcm-ci-latest "mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent package && mvn -pl '!build-common' jacoco:report"
 }
 
