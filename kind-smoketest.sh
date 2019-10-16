@@ -38,7 +38,10 @@ main() {
     # TODO: invoke your tests here
     # teardown will happen automatically on exit
 
-
+    curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+    chmod +x ./kubectl
+    sudo mv ./kubectl /usr/local/bin/kubectl
+    kubectl version
     kubectl cluster-info
 }
 
