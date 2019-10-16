@@ -44,7 +44,7 @@ main() {
     kubectl version
     kubectl cluster-info
 
-    docker run -it lalithsuresh/dcm-ci-latest "mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent package && mvn -pl '!build-common' jacoco:report && bash <(curl -s https://codecov.io/bash)"
+    docker run -it lalithsuresh/dcm-ci-latest "mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent package && mvn -pl '!build-common' jacoco:report"
 }
 
 main
