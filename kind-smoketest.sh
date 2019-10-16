@@ -43,6 +43,8 @@ main() {
     sudo mv ./kubectl /usr/local/bin/kubectl
     kubectl version
     kubectl cluster-info
+
+    docker run -it lalithsuresh/dcm-ci-latest ls
 }
 
 main
