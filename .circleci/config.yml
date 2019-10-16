@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - run: sudo apt-get update && sudo apt install -y wget maven libglu1 && \
-             cd && wget https://github.com/MiniZinc/MiniZincIDE/releases/download/2.3.2/MiniZincIDE-2.3.2-bundle-linux-x86_64.tgz && \
+             wget https://github.com/MiniZinc/MiniZincIDE/releases/download/2.3.2/MiniZincIDE-2.3.2-bundle-linux-x86_64.tgz && \
              mv MiniZincIDE-2.3.2-bundle-linux-x86_64.tgz minizinc.tgz && \
              tar -xzvf minizinc.tgz && \
              mv MiniZincIDE-2.3.2-bundle-linux minizinc && \
