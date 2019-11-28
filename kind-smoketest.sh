@@ -54,7 +54,7 @@ main() {
     
     (cd or-tools_Ubuntu-16.04-64bit_v7.4.7247/lib/ ; mvn install:install-file -Dfile=com.google.ortools.jar -DgroupId=com.google -DartifactId=ortools -Dversion=7.4 -Dpackaging=jar)
     
-    mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent package
+    KUBECONFIG=~/.kube/kind-config-dcm-it mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent integration-test
     mvn -pl '!build-common' jacoco:report
     bash <(curl -s https://codecov.io/bash)
 }
