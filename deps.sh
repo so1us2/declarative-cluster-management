@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -e
+set -x
+
 wget http://apache.osuosl.org/maven/maven-3/3.6.2/binaries/apache-maven-3.6.2-bin.tar.gz
 wget https://download.java.net/java/GA/jdk12.0.2/e482c34c86bd4bf8b56c0b35558996b9/10/GPL/openjdk-12.0.2_linux-x64_bin.tar.gz
 wget https://github.com/google/or-tools/releases/download/v7.4/or-tools_ubuntu-18.04_v7.4.7247.tar.gz
@@ -18,3 +21,7 @@ export PATH=`pwd`/MiniZincIDE-2.3.2-bundle-linux/bin/:$PATH
 export JAVA_HOME=`pwd`/jdk-12.0.2/
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`/MiniZincIDE-2.3.2-bundle-linux/lib
 export QT_PLUGIN_PATH=$QT_PLUGIN_PATH:`pwd`/MiniZincIDE-2.3.2-bundle-linux/plugins
+
+mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent package
+mvn -pl '!build-common' jacoco:report
+bash <(curl -s https://codecov.io/bash)
