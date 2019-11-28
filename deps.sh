@@ -21,7 +21,7 @@ export JAVA_HOME=`pwd`/jdk-12.0.2/
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`/MiniZincIDE-2.3.2-bundle-linux/lib
 export QT_PLUGIN_PATH=$QT_PLUGIN_PATH:`pwd`/MiniZincIDE-2.3.2-bundle-linux/plugins
 
-(cd or-tools_ubuntu-18.04_v7.4.7247.tar.gz/lib ; mvn install:install-file -Dfile=com.google.ortools.jar -DgroupId=com.google -DartifactId=ortools -Dversion=7.4 -Dpackaging=jar)
+(cd or-tools_Ubuntu-18.04-64bit_v7.4.7247/lib/ ; mvn install:install-file -Dfile=com.google.ortools.jar -DgroupId=com.google -DartifactId=ortools -Dversion=7.4 -Dpackaging=jar)
 
 mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent package
 mvn -pl '!build-common' jacoco:report
