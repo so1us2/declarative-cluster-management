@@ -14,4 +14,4 @@ jobs:
     steps:
       - checkout
       - run: bash deps.sh
-#      - run: ./kind-smoketest.sh
+      - run: ./kind-smoketest.sh
