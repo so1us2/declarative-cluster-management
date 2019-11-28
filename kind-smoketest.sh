@@ -31,21 +31,18 @@ main() {
     # get kind
     install_kind_release
     # create a cluster
-    "${KIND}" create cluster --loglevel=debug
+    "${KIND}" create cluster --config k8s-scheduler/src/test/resources/kind-test-cluster-configuration.yaml --name dcm-it
     # set KUBECONFIG to point to the cluster
     KUBECONFIG="$("${KIND}" get kubeconfig-path)"
     export KUBECONFIG
     # TODO: invoke your tests here
     # teardown will happen automatically on exit
 
-    curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
-    chmod +x ./kubectl
-    sudo mv ./kubectl /usr/local/bin/kubectl
-    kubectl version
-    kubectl cluster-info
-
-    echo "Currently in branch $CIRCLE_BRANCH"
-    docker run -t lalithsuresh/dcm-ci-latest bash -c  "./build.sh $CIRCLE_BRANCH"
+    # curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+    # chmod +x ./kubectl
+    # sudo mv ./kubectl /usr/local/bin/kubectl
+    # kubectl version
+    # kubectl cluster-info
 }
 
 main
