@@ -74,8 +74,7 @@ public class Ops {
     }
 
     public IntVar exists(final List<IntVar> data) {
-        assert false;
-        final IntVar bool = model.newBoolVar("");
+1        final IntVar bool = model.newBoolVar("");
         final Literal[] literals = data.toArray(new Literal[0]);
         model.addBoolOr(literals).onlyEnforceIf(bool);
         model.addBoolAnd(data.stream().map(IntVar::not).toArray(Literal[]::new)).onlyEnforceIf(bool.not());
