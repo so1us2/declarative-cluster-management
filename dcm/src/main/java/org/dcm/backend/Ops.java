@@ -398,6 +398,12 @@ public class Ops {
     }
 
     public IntVar inString(final IntVar left, final List<String> right) {
+        if (right.size() == 1) {
+            return eq(left, right.get(0));
+        }
+        if (right.size() == 0) {
+            return falseVar;
+        }
         final IntVar bool = model.newBoolVar("");
         final Domain domain = Domain.fromValues(right.stream().mapToLong(encoder::toLong).toArray());
         model.addLinearExpressionInDomain(left, domain).onlyEnforceIf(bool);
@@ -406,6 +412,12 @@ public class Ops {
     }
 
     public IntVar inLong(final IntVar left, final List<Long> right) {
+        if (right.size() == 1) {
+            return eq(left, right.get(0));
+        }
+        if (right.size() == 0) {
+            return falseVar;
+        }
         final IntVar bool = model.newBoolVar("");
         final Domain domain = Domain.fromValues(right.stream().mapToLong(encoder::toLong).toArray());
         model.addLinearExpressionInDomain(left, domain).onlyEnforceIf(bool);
@@ -414,6 +426,13 @@ public class Ops {
     }
 
     public IntVar inInteger(final IntVar left, final List<Integer> right) {
+        if (right.size() == 1) {
+            return eq(left, right.get(0));
+        }
+        if (right.size() == 0) {
+            return falseVar;
+        }
+
         final IntVar bool = model.newBoolVar("");
         final Domain domain = Domain.fromValues(right.stream().mapToLong(encoder::toLong).toArray());
         model.addLinearExpressionInDomain(left, domain).onlyEnforceIf(bool);
@@ -422,6 +441,13 @@ public class Ops {
     }
 
     public IntVar inIntVar(final IntVar left, final List<IntVar> right) {
+        if (right.size() == 1) {
+            return eq(left, right.get(0));
+        }
+        if (right.size() == 0) {
+            return falseVar;
+        }
+
         final IntVar bool = model.newBoolVar("");
         final Literal[] literals = new Literal[right.size()];
         for (int i = 0; i < right.size(); i++) {
@@ -535,13 +561,6 @@ public class Ops {
 
     public boolean fixed(final IntVar v1) {
         return getMin(v1) == getMax(v1);
-    }
-
-    public boolean fixedAndEqual(final IntVar v1, final IntVar v2) {
-        if (getMin(v1) == getMax(v1) && getMin(v2) == getMax(v2)) {
-            return getMin(v1) == getMin(v2);
-        }
-        return false;
     }
 
     public boolean isFalse(final IntVar v) {
