@@ -38,14 +38,30 @@ public class Ops {
     }
 
     public IntVar sumV(final List<IntVar> data) {
-        final IntVar ret = model.newIntVar(Integer.MIN_VALUE, Integer.MAX_VALUE, "");
+        long lowBound = 0;
+        long upperBound = 0;
+        for (final IntVar v: data) {
+            lowBound += v.getBuilder().getDomain(0);
+            upperBound += v.getBuilder().getDomain(v.getBuilder().getDomainCount() - 1);
+        }
+        final IntVar ret = model.newIntVar(lowBound, upperBound, "");
+        assert ret.getBuilder().getDomainCount() != 0 : lowBound + " " + upperBound;
         model.addEquality(ret, LinearExpr.sum(data.toArray(new IntVar[0])));
         return ret;
     }
 
     // TODO: add test case to OpsTests
     public IntVar scalProd(final List<IntVar> variables, final List<Integer> coefficients) {
-        final IntVar ret = model.newIntVar(Integer.MIN_VALUE, Integer.MAX_VALUE, "");
+        long lowBound = 0;
+        long upperBound = 0;
+        for (int i = 0; i < variables.size(); i++) {
+            final IntVar v = variables.get(i);
+            final int c = coefficients.get(i);
+            lowBound += c * v.getBuilder().getDomain(0);
+            upperBound += c * v.getBuilder().getDomain(v.getBuilder().getDomainCount() - 1);
+        }
+        final IntVar ret = model.newIntVar(lowBound, upperBound, "");
+        assert ret.getBuilder().getDomainCount() != 0 : lowBound + " " + upperBound;
         model.addEquality(ret, LinearExpr.scalProd(variables.toArray(new IntVar[0]),
                                                    coefficients.stream().mapToInt(Integer::intValue).toArray()));
         return ret;
@@ -58,6 +74,7 @@ public class Ops {
     }
 
     public IntVar exists(final List<IntVar> data) {
+        assert false;
         final IntVar bool = model.newBoolVar("");
         final Literal[] literals = data.toArray(new Literal[0]);
         model.addBoolOr(literals).onlyEnforceIf(bool);
@@ -74,7 +91,14 @@ public class Ops {
     }
 
     public IntVar maxVIntVar(final List<IntVar> data) {
-        final IntVar ret = model.newIntVar(Integer.MIN_VALUE, Integer.MAX_VALUE, "");
+        long min = Integer.MAX_VALUE;
+        long max = Integer.MIN_VALUE;
+        for (final IntVar v: data) {
+            min = Math.min(min, v.getBuilder().getDomain(0));
+            max = Math.max(max, v.getBuilder().getDomain(v.getBuilder().getDomainCount() - 1));
+        }
+        final IntVar ret = model.newIntVar(min, max, "");
+        assert ret.getBuilder().getDomainCount() != 0;
         model.addMaxEquality(ret, data.toArray(new IntVar[0]));
         return ret;
     }
@@ -88,7 +112,14 @@ public class Ops {
     }
 
     public IntVar minVIntVar(final List<IntVar> data) {
-        final IntVar ret = model.newIntVar(Integer.MIN_VALUE, Integer.MAX_VALUE, "");
+        long min = Integer.MAX_VALUE;
+        long max = Integer.MIN_VALUE;
+        for (final IntVar v: data) {
+            min = Math.min(min, v.getBuilder().getDomain(0));
+            max = Math.max(max, v.getBuilder().getDomain(v.getBuilder().getDomainCount() - 1));
+        }
+        final IntVar ret = model.newIntVar(min, max, "");
+        assert ret.getBuilder().getDomainCount() != 0;
         model.addMinEquality(ret, data.toArray(new IntVar[0]));
         return ret;
     }
@@ -145,7 +176,12 @@ public class Ops {
     }
 
     public IntVar mult(final IntVar left, final int right) {
-        final IntVar ret = model.newIntVar(Integer.MIN_VALUE, Integer.MAX_VALUE, "");
+        final long min = left.getBuilder().getDomain(0);
+        final long max = left.getBuilder().getDomain(left.getBuilder().getDomainCount() - 1);
+        final long lowBound = Math.min(min * right, max * right);
+        final long upperBound = Math.max(min * right, max * right);
+        final IntVar ret = model.newIntVar(lowBound, upperBound, "");
+        assert ret.getBuilder().getDomainCount() != 0;
         model.addEquality(ret, LinearExpr.term(left, right));
         return ret;
     }
@@ -185,6 +221,12 @@ public class Ops {
     }
 
     public IntVar eq(final IntVar left, final long right) {
+        if (getMin(left) == getMax(left) && getMin(left) == right) {
+            return trueVar;
+        }
+        if ((right < getMin(left)) && (getMax(left) < right)) {
+            return falseVar;
+        }
         final IntVar bool = model.newBoolVar("");
         model.addEquality(left, right).onlyEnforceIf(bool);
         model.addDifferent(left, right).onlyEnforceIf(bool.not());
@@ -192,6 +234,12 @@ public class Ops {
     }
 
     public IntVar eq(final IntVar left, final IntVar right) {
+        if (!overlaps(left, right)) {
+            return falseVar;
+        }
+        if (fixed(left) && fixed(right)) {
+            return getMin(left) == getMin(right) ? trueVar : falseVar;
+        }
         final IntVar bool = model.newBoolVar("");
         model.addEquality(left, right).onlyEnforceIf(bool);
         model.addDifferent(left, right).onlyEnforceIf(bool.not());
@@ -271,6 +319,12 @@ public class Ops {
     }
 
     public IntVar leq(final IntVar left, final long right) {
+        if (getMax(left) <= right) {
+            return trueVar;
+        }
+        if (getMin(left) > right) {
+            return falseVar;
+        }
         final IntVar bool = model.newBoolVar("");
         model.addLessOrEqual(left, right).onlyEnforceIf(bool);
         model.addGreaterThan(left, right).onlyEnforceIf(bool.not());
@@ -278,6 +332,12 @@ public class Ops {
     }
 
     public IntVar leq(final IntVar left, final IntVar right) {
+        if (getMax(left) <= getMin(right)) {
+            return trueVar;
+        }
+        if (getMin(left) > getMax(right)) {
+            return falseVar;
+        }
         final IntVar bool = model.newBoolVar("");
         model.addLessOrEqual(left, right).onlyEnforceIf(bool);
         model.addGreaterThan(left, right).onlyEnforceIf(bool.not());
@@ -300,6 +360,12 @@ public class Ops {
     }
 
     public IntVar geq(final IntVar left, final long right) {
+        if (getMin(left) >= right) {
+            return trueVar;
+        }
+        if (getMax(left) < right) {
+            return falseVar;
+        }
         final IntVar bool = model.newBoolVar("");
         model.addGreaterOrEqual(left, right).onlyEnforceIf(bool);
         model.addLessThan(left, right).onlyEnforceIf(bool.not());
@@ -307,6 +373,12 @@ public class Ops {
     }
 
     public IntVar geq(final IntVar left, final IntVar right) {
+        if (getMin(left) >= getMax(right)) {
+            return trueVar;
+        }
+        if (getMax(left) < getMin(right)) {
+            return falseVar;
+        }
         final IntVar bool = model.newBoolVar("");
         model.addGreaterOrEqual(left, right).onlyEnforceIf(bool);
         model.addLessThan(left, right).onlyEnforceIf(bool.not());
@@ -365,7 +437,13 @@ public class Ops {
     }
 
     public IntVar or(final boolean left, final IntVar right) {
-        return left ? trueVar : right;
+        if (left || isTrue(right)) {
+            return trueVar;
+        }
+        if (isFalse(right)) {
+            return falseVar;
+        }
+        return right;
     }
 
     public IntVar or(final IntVar left, final boolean right) {
@@ -373,6 +451,12 @@ public class Ops {
     }
 
     public IntVar or(final IntVar left, final IntVar right) {
+        if (isTrue(left) || isTrue(right)) {
+            return trueVar;
+        }
+        if (isFalse(left) && isFalse(right)) {
+            return falseVar;
+        }
         final IntVar bool = model.newBoolVar("");
         model.addBoolOr(new Literal[]{left, right}).onlyEnforceIf(bool);
         model.addBoolAnd(new Literal[]{left.not(), right.not()}).onlyEnforceIf(bool.not());
@@ -381,7 +465,13 @@ public class Ops {
 
 
     public IntVar and(final boolean left, final IntVar right) {
-        return left ? right : falseVar;
+        if (!left || isFalse(right)) {
+            return falseVar;
+        }
+        if (isTrue(right)) {
+            return trueVar;
+        }
+        return right;
     }
 
     public IntVar and(final IntVar left, final boolean right) {
@@ -389,6 +479,12 @@ public class Ops {
     }
 
     public IntVar and(final IntVar left, final IntVar right) {
+        if (isFalse(left) || isFalse(right)) {
+            return falseVar;
+        }
+        if (isTrue(left) && isTrue(right)) {
+            return trueVar;
+        }
         final IntVar bool = model.newBoolVar("");
         model.addBoolAnd(new Literal[]{left, right}).onlyEnforceIf(bool);
         model.addBoolOr(new Literal[]{left.not(), right.not()}).onlyEnforceIf(bool.not());
@@ -418,5 +514,41 @@ public class Ops {
 
     public IntVar toConst(final long expr) {
         return model.newConstant(expr);
+    }
+
+    public long getMax(final IntVar v) {
+        return v.getBuilder().getDomain(v.getBuilder().getDomainCount() - 1);
+    }
+
+    public long getMin(final IntVar v) {
+        return v.getBuilder().getDomain(0);
+    }
+
+    public boolean overlaps(final IntVar v1, final IntVar v2) {
+        if ((getMax(v1) >= getMin(v2) && getMax(v1) <= getMax(v2))
+                || (getMin(v1) >= getMin(v2) && getMin(v1) <= getMax(v2))) {
+            return true;
+        }
+        return (getMax(v2) >= getMin(v1) && getMax(v2) <= getMax(v1))
+                || (getMin(v2) >= getMin(v1) && getMin(v2) <= getMax(v1));
+    }
+
+    public boolean fixed(final IntVar v1) {
+        return getMin(v1) == getMax(v1);
+    }
+
+    public boolean fixedAndEqual(final IntVar v1, final IntVar v2) {
+        if (getMin(v1) == getMax(v1) && getMin(v2) == getMax(v2)) {
+            return getMin(v1) == getMin(v2);
+        }
+        return false;
+    }
+
+    public boolean isFalse(final IntVar v) {
+        return fixed(v) && getMin(v) == 0;
+    }
+
+    public boolean isTrue(final IntVar v) {
+        return fixed(v) && getMin(v) == 1;
     }
 }
