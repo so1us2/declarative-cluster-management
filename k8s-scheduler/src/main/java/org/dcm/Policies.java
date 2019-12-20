@@ -137,7 +137,10 @@ class Policies {
             "select sum((pods_to_assign.cpu_request * 100) / spare_capacity_per_node.cpu_remaining) " +
                 "      as cpu_load," +
             "  sum((pods_to_assign.memory_request * 100) / spare_capacity_per_node.memory_remaining) " +
-                "      as memory_load " +
+                "      as memory_load, " +
+            "  sum(((pods_to_assign.cpu_request * 100) / spare_capacity_per_node.cpu_remaining) + " +
+                "  ((pods_to_assign.memory_request * 100) / spare_capacity_per_node.memory_remaining)) " +
+                "      as objective_score " +
             "from spare_capacity_per_node " +
             "join pods_to_assign " +
             "     on pods_to_assign.controllable__node_name = spare_capacity_per_node.name " +
@@ -148,7 +151,7 @@ class Policies {
                                                "where cpu_load <= 100 " +
                                                "  and memory_load <= 100";
         final String capacityCpuMemSoftConstraint = "create view objective_least_requested_cpu_mem as " +
-                                                    "select -max(cpu_load + memory_load) " +
+                                                    "select -max(objective_score) " +
                                                     "from pods_slack_per_node";
         views.add(intermediateView);
         if (withHardConstraint) {
