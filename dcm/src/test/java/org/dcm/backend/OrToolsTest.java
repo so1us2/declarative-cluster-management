@@ -130,29 +130,27 @@ public class OrToolsTest {
         final CpModel model = new CpModel();
 
         // Create the variables.
-        final int numPods = 1000;
+        final int numPods = 100;
         final int numNodes = 50;
         final IntVar[] podsControllableNodes = new IntVar[numPods];
         final int[] podsDemands1 = new int[numPods];
         final int[] podsDemands2 = new int[numPods];
-        final int[] podsDemands3 = new int[numPods];
+        final int[] scores = new int[numPods];
 
         final int[] nodeCapacities1 = new int[numNodes];
         final int[] nodeCapacities2 = new int[numNodes];
-        final int[] nodeCapacities3 = new int[numNodes];
 
         for (int i = 0; i < numPods; i++) {
             podsControllableNodes[i] = model.newIntVar(0, numNodes - 1, "");
         }
         for (int i = 0; i < numPods; i++) {
-            podsDemands1[i] = 1;
-            podsDemands2[i] = 2;
-            podsDemands3[i] = 3;
+            podsDemands1[i] = ThreadLocalRandom.current().nextInt(1, 5);
+            podsDemands2[i] = ThreadLocalRandom.current().nextInt(1, 5);
+            scores[i] = podsDemands1[i] + podsDemands2[i];
         }
         for (int i = 0; i < numNodes; i++) {
             nodeCapacities1[i] = 500;
             nodeCapacities2[i] = 600;
-            nodeCapacities3[i] = 700;
         }
 
         // 1. Symmetry breaking
@@ -161,8 +159,7 @@ public class OrToolsTest {
         }
 
         // 2. Capacity constraint
-        final IntVar[] slacks1 = new IntVar[numNodes];
-
+        final IntVar[] scoreVars = new IntVar[numNodes];
         for (int node = 0; node < numNodes; node++) {
             final IntVar[] bools = new IntVar[numPods];
             for (int i = 0; i < numPods; i++) {
@@ -173,32 +170,20 @@ public class OrToolsTest {
             }
             final IntVar load1 = model.newIntVar(0, 10000000, "");
             final IntVar load2 = model.newIntVar(0, 10000000, "");
-            final IntVar load3 = model.newIntVar(0, 10000000, "");
+            final IntVar score = model.newIntVar(0, 10000000, "");
             model.addEquality(load1, LinearExpr.scalProd(bools, podsDemands1));
             model.addEquality(load2, LinearExpr.scalProd(bools, podsDemands2));
-            model.addEquality(load3, LinearExpr.scalProd(bools, podsDemands3));
+            model.addEquality(score, LinearExpr.scalProd(bools, scores));
 
-            final IntVar slack1 = model.newIntVar(0, 10000000, "");
-            final IntVar slack2 = model.newIntVar(0, 10000000, "");
-            final IntVar slack3 = model.newIntVar(0, 10000000, "");
+            scoreVars[node] = score;
 
-            model.addEquality(slack1, LinearExpr.scalProd(new IntVar[]{model.newConstant(nodeCapacities1[node]), load1},
-                                                                      new int[]{1, -1}));
-            model.addEquality(slack2, LinearExpr.scalProd(new IntVar[]{model.newConstant(nodeCapacities2[node]), load2},
-                    new int[]{1, -1}));
-            model.addEquality(slack3, LinearExpr.scalProd(new IntVar[]{model.newConstant(nodeCapacities3[node]), load3},
-                    new int[]{1, -1}));
-
-            slacks1[node] = slack1;
-
-            model.addGreaterOrEqual(slack1, 0);
-            model.addGreaterOrEqual(slack2, 0);
-            model.addGreaterOrEqual(slack3, 0);
-
+            model.addLessOrEqual(load1, nodeCapacities1[node]);
+            model.addLessOrEqual(load2, nodeCapacities2[node]);
         }
-        final IntVar min1 = model.newIntVar(0, 1000000000, "");
-        model.addMinEquality(min1, slacks1);
-        model.maximize(min1);
+
+        final IntVar max1 = model.newIntVar(0, 100, "");
+        model.addMaxEquality(max1, scoreVars);
+        model.minimize(max1);
         System.out.println("Model creation: " + (System.currentTimeMillis() - now));
 
         // Create a solver and solve the model.
@@ -209,7 +194,7 @@ public class OrToolsTest {
 
         final CpSolverStatus status = solver.solve(model);
         if (status == CpSolverStatus.FEASIBLE || status == CpSolverStatus.OPTIMAL) {
-            System.out.println(solver.value(min1));
+            System.out.println(solver.value(max1));
         }
         System.out.println("Done: " + (System.currentTimeMillis() - now));
     }
