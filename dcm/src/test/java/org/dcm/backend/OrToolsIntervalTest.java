@@ -6,7 +6,12 @@
 
 package org.dcm.backend;
 
-import com.google.ortools.sat.*;
+import com.google.ortools.sat.CpModel;
+import com.google.ortools.sat.CpSolver;
+import com.google.ortools.sat.CpSolverStatus;
+import com.google.ortools.sat.IntVar;
+import com.google.ortools.sat.IntervalVar;
+import com.google.ortools.sat.LinearExpr;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
@@ -28,18 +33,17 @@ public class OrToolsIntervalTest {
         // Create the variables.
         final int numTasks = 50;
         final int numNodes = 1000;
-        int maxCapacity1 = 0;
-        int maxCapacity2 = 0;
+        final int maxCapacity1 = 500;
+        final int maxCapacity2 = 600;
         final IntVar[] taskToNodeAssignment = new IntVar[numTasks];
         final IntVar[] nodeIntervalEnd = new IntVar[numTasks];
         final IntervalVar[] tasksIntervals = new IntervalVar[numTasks];
-
         final int[] taskDemands1 = new int[numTasks];
         final int[] taskDemands2 = new int[numTasks];
         final int[] scores = new int[numTasks];
 
-        final int[] nodeCapacities1 = new int[numNodes];
-        final int[] nodeCapacities2 = new int[numNodes];
+        //        final int[] nodeCapacities1 = new int[numNodes];
+        //        final int[] nodeCapacities2 = new int[numNodes];
 
         for (int i = 0; i < numTasks; i++) {
             taskToNodeAssignment[i] = model.newIntVar(0, numNodes - 1, "");
@@ -56,12 +60,12 @@ public class OrToolsIntervalTest {
             scores[i] = taskDemands1[i] + taskDemands2[i];
         }
 
-        for (int i = 0; i < numNodes; i++) {
-            nodeCapacities1[i] = 500;
-            nodeCapacities2[i] = 600;
-            maxCapacity1 = 500;
-            maxCapacity2 = 600;
-        }
+//        for (int i = 0; i < numNodes; i++) {
+//            nodeCapacities1[i] = 500;
+//            nodeCapacities2[i] = 600;
+//            maxCapacity1 = 500;
+//            maxCapacity2 = 600;
+//        }
 
         // 1. Symmetry breaking
         for (int i = 0; i < numTasks - 1; i++) {
@@ -166,6 +170,5 @@ public class OrToolsIntervalTest {
         }
         System.out.println("Done: " + (System.currentTimeMillis() - now));
     }
-
-
+    
 }
