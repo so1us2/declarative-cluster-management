@@ -6,11 +6,15 @@
 
 package org.dcm.backend;
 
+//import com.google.common.base.Preconditions;
+import com.google.common.primitives.Ints;
 import com.google.ortools.sat.CpModel;
 import com.google.ortools.sat.IntVar;
+import com.google.ortools.sat.IntervalVar;
 import com.google.ortools.sat.LinearExpr;
 import com.google.ortools.sat.Literal;
 import com.google.ortools.util.Domain;
+import org.apache.commons.lang3.ArrayUtils;
 
 import java.util.Collections;
 import java.util.List;
@@ -418,5 +422,82 @@ public class Ops {
 
     public IntVar toConst(final long expr) {
         return model.newConstant(expr);
+    }
+
+    public void capacityConstraint(final CpModel model, final IntVar[] varsToAssign,
+                                   final List<List<Integer>> demands,
+                                   final List<List<Integer>> currentAllotments,
+                                   final List<List<Integer>> capacities) {
+        //Preconditions.checkArgument(demands.size() != capacities.size());
+
+        // Create the variables.
+        final int[] taskDemands1 = demands.get(0).stream().mapToInt(Integer::intValue).toArray();
+        final int[] taskDemands2 = demands.get(1).stream().mapToInt(Integer::intValue).toArray();
+        final int[] current1 = currentAllotments.get(0).stream().mapToInt(Integer::intValue).toArray();
+        final int[] current2 = currentAllotments.get(1).stream().mapToInt(Integer::intValue).toArray();
+        final int[] nodeCapacities1 = capacities.get(0).stream().mapToInt(Integer::intValue).toArray();
+        final int[] nodeCapacities2 = capacities.get(1).stream().mapToInt(Integer::intValue).toArray();
+
+        // #tasks = actual demands + current assignments (# = N) + dummies to match maxCapacity (# = N)
+        final IntVar[] taskToNodeAssignment = ArrayUtils.addAll(varsToAssign,
+                                                                new IntVar[2 * nodeCapacities1.length]);
+        System.out.println(varsToAssign.length + " " + nodeCapacities1.length + " " + taskToNodeAssignment.length);
+        final int numTasks = taskToNodeAssignment.length;
+        final IntVar[] nodeIntervalEnd = new IntVar[numTasks];
+        final IntervalVar[] tasksIntervals = new IntervalVar[numTasks];
+        final int numNodes = nodeCapacities1.length;
+        final int taskCount = varsToAssign.length;
+
+        final int[] allLoads1 = new int[numTasks];
+        final int[] allLoads2 = new int[numTasks];
+
+        // actual demands
+        for (int i = 0; i < taskCount; i++) {
+            taskToNodeAssignment[i] = model.newIntVar(0, numNodes - 1, "");
+            nodeIntervalEnd[i] = model.newIntVar(1, numNodes, "");
+            // interval with start as taskToNodeAssignment and size of 1
+            tasksIntervals[i] = model.newIntervalVar(taskToNodeAssignment[i], model.newConstant(1),
+                    nodeIntervalEnd[i], "");
+            allLoads1[i] = taskDemands1[i];
+            allLoads2[i] = taskDemands2[i];
+        }
+
+        // current assignments
+        for (int i = taskCount; i < taskCount + numNodes ; i++) {
+            final int currNode = i - taskCount;
+            taskToNodeAssignment[i] = model.newIntVar(currNode, currNode + 1, "");
+            nodeIntervalEnd[i] = model.newIntVar(currNode + 1, currNode + 2, "");
+            tasksIntervals[i] = model.newIntervalVar(taskToNodeAssignment[i], model.newConstant(1),
+                    nodeIntervalEnd[i], "");
+            allLoads1[i] = current1[currNode];
+            allLoads2[i] = current2[currNode];
+        }
+
+        final int maxCapacity1 = Ints.max(nodeCapacities1);
+        final int maxCapacity2 = Ints.max(nodeCapacities2);
+
+        // dummy variables to match capacity
+        for (int i = taskCount + numNodes; i < taskCount + 2 * numNodes ; i++) {
+            final int currNode = i - (taskCount + numNodes);
+            taskToNodeAssignment[i] = model.newIntVar(currNode, currNode + 1, "");
+            nodeIntervalEnd[i] = model.newIntVar(currNode + 1, currNode + 2, "");
+            tasksIntervals[i] = model.newIntervalVar(taskToNodeAssignment[i], model.newConstant(1),
+                    nodeIntervalEnd[i], "");
+            allLoads1[i] =  maxCapacity1 - nodeCapacities1[currNode];
+            allLoads2[i] =  maxCapacity2 - nodeCapacities2[currNode];
+        }
+
+        // 2. Capacity constraints
+        model.addCumulative(tasksIntervals, allLoads1, model.newConstant(maxCapacity1));
+        model.addCumulative(tasksIntervals, allLoads2, model.newConstant(maxCapacity2));
+
+        // Cumulative score
+        final IntVar max1 = model.newIntVar(0, 10000000, "");
+        model.addCumulative(tasksIntervals, allLoads1, max1);
+        final IntVar max2 = model.newIntVar(0, 10000000, "");
+        model.addCumulative(tasksIntervals, allLoads2, max2);
+        model.minimize(LinearExpr.scalProd(new IntVar[]{max1, max2},
+                new long[]{maxCapacity2 / maxCapacity1, 1}));   // minimize max score weighted by max capacity
+                        // since it takes only long or int as scalar currently scaling up
     }
 }

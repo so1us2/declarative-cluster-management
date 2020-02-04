@@ -17,11 +17,13 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.util.Arrays.asList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -732,5 +734,23 @@ public class OpsTests {
         assertEquals(CpSolverStatus.FEASIBLE, solve);
         final Set<Long> collect = vars.stream().map(solver::value).collect(Collectors.toSet());
         assertFalse(collect.contains(solver.value(var)));
+    }
+
+    @Test
+    public void checkCapacityConstraint() {
+        final CpModel model1 = new CpModel();
+        final IntVar[] varsToAssign = new IntVar[4];
+        final List<List<Integer>> demands = asList(asList(2, 1, 3, 1), asList(20, 10, 30, 10));
+        final List<List<Integer>> currentAllotments = asList(asList(2, 3, 1), asList(20, 30, 10));
+        final List<List<Integer>> capacities = asList(asList(6, 8, 10), asList(60, 80, 100));
+        ops.capacityConstraint(model1, varsToAssign, demands, currentAllotments, capacities);
+
+        final CpSolver solver = new CpSolver();
+        solver.getParameters().setLogSearchProgress(true);
+        final CpSolverStatus solve = solver.solve(model1);
+//        if (solve == CpSolverStatus.FEASIBLE || solve == CpSolverStatus.OPTIMAL) {
+//            System.out.println(solver.objectiveValue());
+//        }
+        assertEquals(CpSolverStatus.OPTIMAL, solve);
     }
 }

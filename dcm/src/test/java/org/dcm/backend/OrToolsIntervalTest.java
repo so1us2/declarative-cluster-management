@@ -170,5 +170,5 @@ public class OrToolsIntervalTest {
         }
         System.out.println("Done: " + (System.currentTimeMillis() - now));
     }
-    
+
 }
