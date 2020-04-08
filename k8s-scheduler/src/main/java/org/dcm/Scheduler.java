@@ -101,8 +101,8 @@ public final class Scheduler {
                     && podEvent.getPod().getSpec().getSchedulerName().equals(
                     Scheduler.SCHEDULER_NAME)
             )
-            .compose(Transformers.buffer(batchCount, batchTimeMs, TimeUnit.MILLISECONDS))
-//            .buffer(batchTimeMs, TimeUnit.MILLISECONDS, batchCount)
+//            .compose(Transformers.buffer(batchCount, batchTimeMs, TimeUnit.MILLISECONDS))
+            .buffer(batchTimeMs, TimeUnit.MILLISECONDS, batchCount)
             .filter(podEvents -> !podEvents.isEmpty())
             .observeOn(Schedulers.from(Executors.newSingleThreadExecutor(namedThreadFactory)))
             .subscribe(
