@@ -77,7 +77,7 @@ public class EmulatedPodDeployer implements IPodDeployer {
                 pod.setSpec(spec);
                 pod.setStatus(status);
                 pods.computeIfAbsent(deploymentName, (k) -> new ArrayList<>()).add(pod);
-                resourceEventHandler.onAddSync(pod);
+                resourceEventHandler.onAdd(pod);
             }
         }
     }

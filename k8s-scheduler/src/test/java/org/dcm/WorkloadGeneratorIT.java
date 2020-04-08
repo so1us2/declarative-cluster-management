@@ -210,7 +210,10 @@ class WorkloadGeneratorIT extends ITBase {
                 final int end = Integer.parseInt(parts[3]) / timeScaleDown;
                 final float cpu = Float.parseFloat(parts[4].replace(">", "")) / cpuScaleDown;
                 final float mem = Float.parseFloat(parts[5].replace(">", "")) / memScaleDown;
-                final int vmCount = Integer.parseInt(parts[6].replace(">", ""));
+                int vmCount = Integer.parseInt(parts[6].replace(">", ""));
+                if (vmCount < 10) {
+                    vmCount *= 5;
+                }
 
                 // generate a deployment's details based on cpu, mem requirements
                 final Deployment deployment = getDeployment(client, schedulerName, cpu, mem, vmCount, taskCount);
