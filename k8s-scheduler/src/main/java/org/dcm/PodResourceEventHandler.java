@@ -7,10 +7,11 @@
 package org.dcm;
 
 import io.fabric8.kubernetes.api.model.Pod;
-import io.reactivex.processors.PublishProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -22,34 +23,45 @@ import java.util.concurrent.Executors;
  */
 class PodResourceEventHandler {
     private static final Logger LOG = LoggerFactory.getLogger(PodResourceEventHandler.class);
-    private final PublishProcessor<PodEvent> flowable;
+    private final BlockingQueue<PodEvent> flowable;
     private final ExecutorService service;
+    private final PodEventsToDatabase podEventsToDatabase;
+    private final ConcurrentHashMap<String, Boolean> podsAdded = new ConcurrentHashMap<>();
 
-    PodResourceEventHandler(final PublishProcessor<PodEvent> flowable) {
+    PodResourceEventHandler(final BlockingQueue<PodEvent> flowable,
+                            final PodEventsToDatabase podEventsToDatabase) {
         this.flowable = flowable;
+        this.podEventsToDatabase = podEventsToDatabase;
         this.service = Executors.newFixedThreadPool(10);
     }
 
-    PodResourceEventHandler(final PublishProcessor<PodEvent> flowable, final ExecutorService service) {
+    PodResourceEventHandler(final BlockingQueue<PodEvent> flowable, final PodEventsToDatabase podEventsToDatabase,
+                            final ExecutorService service) {
         this.flowable = flowable;
+        this.podEventsToDatabase = podEventsToDatabase;
         this.service = service;
     }
 
-
     public void onAddSync(final Pod pod) {
         LOG.debug("{} pod add received", pod.getMetadata().getName());
-        flowable.onNext(new PodEvent(PodEvent.Action.ADDED, pod)); // might be better to add pods in a batch
+        final PodEvent event = new PodEvent(PodEvent.Action.ADDED, pod);
+        podEventsToDatabase.handle(event);
+        flowable.add(event); // might be better to add pods in a batch
     }
 
     public void onUpdateSync(final Pod newPod) {
         LOG.debug("{} pod update received", newPod.getMetadata().getName());
-        flowable.onNext(new PodEvent(PodEvent.Action.UPDATED, newPod));
+        final PodEvent event = new PodEvent(PodEvent.Action.UPDATED, newPod);
+        podEventsToDatabase.handle(event);
+        flowable.add(event);
     }
 
     public void onDeleteSync(final Pod pod) {
         final long now = System.nanoTime();
         LOG.debug("{} pod deleted in {}ns!", pod.getMetadata().getName(), (System.nanoTime() - now));
-        flowable.onNext(new PodEvent(PodEvent.Action.DELETED, pod));
+        final PodEvent event = new PodEvent(PodEvent.Action.DELETED, pod);
+        podEventsToDatabase.handle(event);
+        flowable.add(event);
     }
 
     public void onAdd(final Pod pod) {

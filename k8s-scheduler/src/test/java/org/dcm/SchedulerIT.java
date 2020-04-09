@@ -8,7 +8,6 @@ package org.dcm;
 
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
-import io.reactivex.Flowable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -18,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 
 import static org.dcm.Scheduler.SCHEDULER_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,10 +40,13 @@ public class SchedulerIT extends ITBase {
     @Timeout(60 /* seconds */)
     public void testDeployments() throws Exception {
         final DBConnectionPool dbConnectionPool = new DBConnectionPool();
-        final Scheduler scheduler = new Scheduler(dbConnectionPool, Policies.getDefaultPolicies(), "ORTOOLS", true, 4);
         final KubernetesStateSync stateSync = new KubernetesStateSync(fabricClient);
 
-        final Flowable<PodEvent> eventStream = stateSync.setupInformersAndPodEventStream(dbConnectionPool);
+        final PodEventsToDatabase podEventsToDatabase = new PodEventsToDatabase(dbConnectionPool);
+        final BlockingQueue<PodEvent> eventStream = stateSync.setupInformersAndPodEventStream(dbConnectionPool,
+                                                                                              podEventsToDatabase);
+        final Scheduler scheduler = new Scheduler(dbConnectionPool, podEventsToDatabase,
+                Policies.getDefaultPolicies(), "ORTOOLS", true, 4);
         scheduler.startScheduler(eventStream, new KubernetesBinder(fabricClient), 50, 50);
         stateSync.startProcessingEvents();
 
@@ -69,12 +72,14 @@ public class SchedulerIT extends ITBase {
     @Timeout(60 /* seconds */)
     public void testAffinityAntiAffinity() throws Exception {
         final DBConnectionPool dbConnectionPool = new DBConnectionPool();
-        final Scheduler scheduler = new Scheduler(dbConnectionPool, Policies.getDefaultPolicies(),
-                                       "ORTOOLS", true, 4);
         final KubernetesStateSync stateSync = new KubernetesStateSync(fabricClient);
 
-        final Flowable<PodEvent> eventStream = stateSync.setupInformersAndPodEventStream(dbConnectionPool);
-        scheduler.startScheduler(eventStream, new KubernetesBinder(fabricClient),  50, 1000);
+        final PodEventsToDatabase podEventsToDatabase = new PodEventsToDatabase(dbConnectionPool);
+        final BlockingQueue<PodEvent> eventStream = stateSync.setupInformersAndPodEventStream(dbConnectionPool,
+                podEventsToDatabase);
+        final Scheduler scheduler = new Scheduler(dbConnectionPool, podEventsToDatabase,
+                Policies.getDefaultPolicies(), "ORTOOLS", true, 4);
+        scheduler.startScheduler(eventStream, new KubernetesBinder(fabricClient), 50, 50);
         stateSync.startProcessingEvents();
 
         // Add a new one
@@ -92,13 +97,14 @@ public class SchedulerIT extends ITBase {
         items.forEach(pod -> assertNotEquals(pod.getSpec().getNodeName(), "kube-master"));
 
         final Map<String, List<String>> podsByNode = new HashMap<>();
-
         items.forEach(pod -> podsByNode.computeIfAbsent(pod.getSpec().getNodeName(), k -> new ArrayList<>())
                                        .add(pod.getMetadata().getName()));
+        System.out.println(podsByNode);
         podsByNode.forEach((nodeName, pods) -> {
-            assertEquals(2, pods.size());
-            assertTrue(pods.stream().anyMatch(p -> p.contains(webStoreName)));
-            assertTrue(pods.stream().anyMatch(p -> p.contains(cacheName)));
+            final String message = "Found the following pods: " + pods;
+            assertEquals(2, pods.size(), message);
+            assertTrue(pods.stream().anyMatch(p -> p.contains(webStoreName)), message);
+            assertTrue(pods.stream().anyMatch(p -> p.contains(cacheName)), message);
         });
         stateSync.shutdown();
         scheduler.shutdown();
@@ -109,11 +115,14 @@ public class SchedulerIT extends ITBase {
     @Timeout(60 /* seconds */)
     public void testSmallTrace() throws Exception {
         final DBConnectionPool dbConnectionPool = new DBConnectionPool();
-        final Scheduler scheduler = new Scheduler(dbConnectionPool, Policies.getDefaultPolicies(), "ORTOOLS", true, 4);
         final KubernetesStateSync stateSync = new KubernetesStateSync(fabricClient);
 
-        final Flowable<PodEvent> eventStream = stateSync.setupInformersAndPodEventStream(dbConnectionPool);
-        scheduler.startScheduler(eventStream, new KubernetesBinder(fabricClient), 50, 1000);
+        final PodEventsToDatabase podEventsToDatabase = new PodEventsToDatabase(dbConnectionPool);
+        final BlockingQueue<PodEvent> eventStream = stateSync.setupInformersAndPodEventStream(dbConnectionPool,
+                podEventsToDatabase);
+        final Scheduler scheduler = new Scheduler(dbConnectionPool, podEventsToDatabase,
+                Policies.getDefaultPolicies(), "ORTOOLS", true, 4);
+        scheduler.startScheduler(eventStream, new KubernetesBinder(fabricClient), 50, 50);
         stateSync.startProcessingEvents();
 
         // Add a new one

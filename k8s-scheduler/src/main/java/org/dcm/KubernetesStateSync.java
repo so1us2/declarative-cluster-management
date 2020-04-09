@@ -13,16 +13,18 @@ import io.fabric8.kubernetes.api.model.NodeList;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.fabric8.kubernetes.client.Watch;
 import io.fabric8.kubernetes.client.Watcher;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import io.fabric8.kubernetes.client.informers.SharedInformerFactory;
-import io.reactivex.Flowable;
-import io.reactivex.processors.PublishProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 
 class KubernetesStateSync {
@@ -32,38 +34,40 @@ class KubernetesStateSync {
             new ThreadFactoryBuilder().setNameFormat("flowable-thread-%d").build();
     private final ExecutorService service = Executors.newFixedThreadPool(10, namedThreadFactory);
     private final KubernetesClient client;
+    private final BlockingQueue<PodEvent> taskQueue = new LinkedBlockingQueue<>();
+    @Nullable private PodEventsToDatabase podEventsToDatabase;
+    @Nullable private Watch watch;
 
     KubernetesStateSync(final KubernetesClient client) {
         this.sharedInformerFactory = client.informers();
         this.client = client;
     }
 
-    Flowable<PodEvent> setupInformersAndPodEventStream(final DBConnectionPool dbConnectionPool) {
+    BlockingQueue<PodEvent> setupInformersAndPodEventStream(final DBConnectionPool dbConnectionPool,
+                                                            final PodEventsToDatabase podEventsToDatabase) {
 
         final SharedIndexInformer<Node> nodeSharedIndexInformer = sharedInformerFactory
                 .sharedIndexInformerFor(Node.class, NodeList.class, 30000);
         nodeSharedIndexInformer.addEventHandler(new NodeResourceEventHandler(dbConnectionPool, service));
-
+        this.podEventsToDatabase = podEventsToDatabase;
         // Pod informer
-        final PublishProcessor<PodEvent> podEventPublishProcessor = PublishProcessor.create();
-        final PodResourceEventHandler podResourceEventHandler =
-                new PodResourceEventHandler(podEventPublishProcessor, service);
-        client.pods().watch(new PodWatcher(podResourceEventHandler));
-//        final SharedIndexInformer<Pod> podInformer = sharedInformerFactory
-//                .sharedIndexInformerFor(Pod.class, PodList.class, 1000);
-//        podInformer.addEventHandler(new PodResourceEventHandler(podEventPublishProcessor, service));
-
-        LOG.info("Instantiated node and pod informers. Starting them all now.");
-
-        return podEventPublishProcessor;
+        return taskQueue;
     }
 
     void startProcessingEvents() {
+        assert podEventsToDatabase != null;
+        final PodResourceEventHandler podResourceEventHandler =
+                new PodResourceEventHandler(taskQueue, podEventsToDatabase, service);
+        watch = client.pods().watch(new PodWatcher(podResourceEventHandler));
+        LOG.info("Instantiated node and pod informers. Starting them all now.");
+
         sharedInformerFactory.startAllRegisteredInformers();
     }
 
     void shutdown() {
         sharedInformerFactory.stopAllRegisteredInformers();
+        assert watch != null;
+        watch.close();
     }
 
     private static class PodWatcher implements Watcher<Pod> {

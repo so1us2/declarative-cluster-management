@@ -11,11 +11,9 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.reactivex.Flowable;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.schedulers.Schedulers;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -31,7 +29,6 @@ import org.jooq.Update;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -41,6 +38,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -68,13 +69,15 @@ public final class Scheduler {
             metrics.histogram(name(Scheduler.class, "pods-per-scheduling-attempt"));
     private final Timer updateDataTimes = metrics.timer(name(Scheduler.class, "updateDataTimes"));
     private final Timer solveTimes = metrics.timer(name(Scheduler.class, "solveTimes"));
-    @Nullable private Disposable subscription;
     private final ThreadFactory namedThreadFactory =
             new ThreadFactoryBuilder().setNameFormat("computation-thread-%d").build();
     private final PodEventsToDatabase podEventsToDatabase;
     private final DBConnectionPool dbConnectionPool;
+    private final Map<String, Boolean> podsPlaced = new ConcurrentHashMap<>();
+    private final ExecutorService schedulerExecutor = Executors.newSingleThreadExecutor(namedThreadFactory);
 
-    Scheduler(final DBConnectionPool dbConnectionPool, final List<String> policies, final String solverToUse,
+    Scheduler(final DBConnectionPool dbConnectionPool, final PodEventsToDatabase podEventsToDatabase,
+              final List<String> policies, final String solverToUse,
               final boolean debugMode, final int numThreads) {
         final InputStream resourceAsStream = Scheduler.class.getResourceAsStream("/git.properties");
         try (final BufferedReader gitPropertiesFile = new BufferedReader(new InputStreamReader(resourceAsStream,
@@ -85,36 +88,63 @@ public final class Scheduler {
             throw new RuntimeException(e);
         }
         this.dbConnectionPool = dbConnectionPool;
-        this.podEventsToDatabase = new PodEventsToDatabase(dbConnectionPool);
+        this.podEventsToDatabase = podEventsToDatabase;
         this.model = createDcmModel(dbConnectionPool.getConnectionToDb(), solverToUse, policies, numThreads);
         LOG.info("Initialized scheduler:: model:{}", model);
     }
 
-    void startScheduler(final Flowable<PodEvent> eventStream, final IPodToNodeBinder binder, final int batchCount,
+    void startScheduler(final BlockingQueue<PodEvent> eventStream, final IPodToNodeBinder binder, final int batchCount,
                         final long batchTimeMs) {
-        subscription = eventStream
-            .map(podEventsToDatabase::handle)
-            .filter(podEvent -> podEvent.getAction().equals(PodEvent.Action.ADDED)
-                    && podEvent.getPod().getStatus().getPhase().equals("Pending")
-                    && podEvent.getPod().getSpec().getNodeName() == null
-                    && podEvent.getPod().getSpec().getSchedulerName().equals(
-                    Scheduler.SCHEDULER_NAME)
-            )
-//            .compose(Transformers.buffer(batchCount, batchTimeMs, TimeUnit.MILLISECONDS))
-            .buffer(batchTimeMs, TimeUnit.MILLISECONDS, batchCount)
-            .filter(podEvents -> !podEvents.isEmpty())
-            .observeOn(Schedulers.from(Executors.newSingleThreadExecutor(namedThreadFactory)))
-            .subscribe(
-                podEvents -> {
-                    podsPerSchedulingEvent.update(podEvents.size());
-                    LOG.info("Received the following {} events: {}", podEvents.size(), podEvents);
-                    scheduleAllPendingPods(binder);
-                },
-                e -> {
-                    LOG.error("Received exception. Dumping DB state to /tmp/", e);
-                    DebugUtils.dbDump(dbConnectionPool.getConnectionToDb());
+        schedulerExecutor.execute(
+            () -> {
+                while (!Thread.currentThread().isInterrupted()) {
+                    try {
+                        final PodEvent event = eventStream.take();
+                        final Pod pod = event.getPod();
+                        if (!(event.getAction().equals(PodEvent.Action.ADDED)
+                            && pod.getStatus().getPhase().equals("Pending")
+                            && pod.getSpec().getNodeName() == null
+                            && pod.getSpec().getSchedulerName().equals(Scheduler.SCHEDULER_NAME))) {
+                            LOG.info("Already placed pod " + pod.getMetadata().getName());
+                            continue;
+                        }
+                        final String podName = pod.getMetadata().getName();
+                        if (podsPlaced.containsKey(podName)) {
+                            podsPlaced.remove(podName);
+                            continue;
+                        }
+                        LOG.info("Triggering scheduleAllPendingPods()");
+                        scheduleAllPendingPods(binder);
+                        podsPlaced.remove(podName);
+                    } catch (final InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
-            );
+            }
+        );
+//        subscription = eventStream
+//            .filter(podEvent -> podEvent.getAction().equals(PodEvent.Action.ADDED)
+//                    && podEvent.getPod().getStatus().getPhase().equals("Pending")
+//                    && podEvent.getPod().getSpec().getNodeName() == null
+//                    && podEvent.getPod().getSpec().getSchedulerName().equals(
+//                    Scheduler.SCHEDULER_NAME)
+//            )
+//            .compose(Transformers.buffer(batchCount, batchTimeMs, TimeUnit.MILLISECONDS))
+//            .buffer(batchTimeMs, TimeUnit.MILLISECONDS, batchCount)
+//            .filter(podEvents -> !podEvents.isEmpty())
+//            .observeOn(Schedulers.from(Executors.newSingleThreadExecutor(namedThreadFactory)))
+//            .subscribe(
+//                podEvents -> {
+//                    podsPerSchedulingEvent.update(podEvents.size());
+//                    LOG.info("Received the following {} events: {}", podEvents.size(), podEvents);
+//                    scheduleAllPendingPods(binder);
+//                },
+//                e -> {
+//                    LOG.error("Received exception. Dumping DB state to /tmp/", e);
+//                    DebugUtils.dbDump(dbConnectionPool.getConnectionToDb());
+//                }
+//            );
     }
 
     @SuppressWarnings("unchecked")
@@ -137,6 +167,7 @@ public final class Scheduler {
                 podsToAssignUpdated.forEach(r -> {
                     final String podName = r.get(Tables.PODS_TO_ASSIGN.POD_NAME);
                     final String nodeName = r.get(Tables.PODS_TO_ASSIGN.CONTROLLABLE__NODE_NAME);
+                    podsPlaced.put(podName, true);
                     updates.add(
                         conn.update(Tables.POD_INFO)
                                 .set(Tables.POD_INFO.NODE_NAME, nodeName)
@@ -190,9 +221,9 @@ public final class Scheduler {
         }
     }
 
-    void shutdown() {
-        assert subscription != null;
-        subscription.dispose();
+    void shutdown() throws InterruptedException {
+        schedulerExecutor.shutdownNow();
+        schedulerExecutor.awaitTermination(100, TimeUnit.SECONDS);
     }
 
     public static void main(final String[] args) throws InterruptedException, ParseException {
@@ -210,7 +241,9 @@ public final class Scheduler {
         final CommandLine cmd = parser.parse(options, args);
 
         final DBConnectionPool conn = new DBConnectionPool();
+        final PodEventsToDatabase podEventsToDatabase = new PodEventsToDatabase(conn);
         final Scheduler scheduler = new Scheduler(conn,
+                podEventsToDatabase,
                 Policies.getDefaultPolicies(),
                 cmd.getOptionValue("solver"),
                 Boolean.parseBoolean(cmd.getOptionValue("debug-mode")),
@@ -221,7 +254,8 @@ public final class Scheduler {
                  kubernetesClient.getConfiguration().getMasterUrl());
 
         final KubernetesStateSync stateSync = new KubernetesStateSync(kubernetesClient);
-        final Flowable<PodEvent> eventStream = stateSync.setupInformersAndPodEventStream(conn);
+        final BlockingQueue<PodEvent> eventStream = stateSync.setupInformersAndPodEventStream(conn,
+                                                                                              podEventsToDatabase);
         final KubernetesBinder binder = new KubernetesBinder(kubernetesClient);
         scheduler.startScheduler(eventStream, binder,
                                  Integer.parseInt(cmd.getOptionValue("batch-size")),
