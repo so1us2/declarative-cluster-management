@@ -35,7 +35,6 @@ class KubernetesStateSync {
 
     KubernetesStateSync(final KubernetesClient client) {
         this.sharedInformerFactory = client.informers();
-        client.pods().watch(new LoggingWatcher());
     }
 
     Flowable<PodEvent> setupInformersAndPodEventStream(final DBConnectionPool dbConnectionPool) {
@@ -46,7 +45,7 @@ class KubernetesStateSync {
 
         // Pod informer
         final SharedIndexInformer<Pod> podInformer = sharedInformerFactory
-                .sharedIndexInformerFor(Pod.class, PodList.class, 30000);
+                .sharedIndexInformerFor(Pod.class, PodList.class, 1000);
         final PublishProcessor<PodEvent> podEventPublishProcessor = PublishProcessor.create();
         podInformer.addEventHandler(new PodResourceEventHandler(podEventPublishProcessor, service));
 
