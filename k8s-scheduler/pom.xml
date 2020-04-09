@@ -64,6 +64,12 @@
             <artifactId>rxjava2-extras</artifactId>
             <version>0.1.36</version>
         </dependency>
+        <dependency>
+            <groupId>io.kubernetes</groupId>
+            <artifactId>client-java</artifactId>
+            <version>5.0.0</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>

@@ -13,6 +13,8 @@ import io.fabric8.kubernetes.api.model.NodeList;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.fabric8.kubernetes.client.Watcher;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import io.fabric8.kubernetes.client.informers.SharedInformerFactory;
 import io.reactivex.Flowable;
@@ -33,6 +35,7 @@ class KubernetesStateSync {
 
     KubernetesStateSync(final KubernetesClient client) {
         this.sharedInformerFactory = client.informers();
+        client.pods().watch(new LoggingWatcher());
     }
 
     Flowable<PodEvent> setupInformersAndPodEventStream(final DBConnectionPool dbConnectionPool) {
@@ -58,5 +61,17 @@ class KubernetesStateSync {
 
     void shutdown() {
         sharedInformerFactory.stopAllRegisteredInformers();
+    }
+
+    private static class LoggingWatcher implements Watcher<Pod> {
+        @Override
+        public void eventReceived(final Action action, final Pod pod) {
+            LOG.info("RECEIVED {} {}", action, pod.getMetadata().getName());
+        }
+
+        @Override
+        public void onClose(final KubernetesClientException e) {
+            LOG.info("CLOSED", e);
+        }
     }
 }
