@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -26,7 +25,6 @@ class PodResourceEventHandler {
     private final BlockingQueue<PodEvent> flowable;
     private final ExecutorService service;
     private final PodEventsToDatabase podEventsToDatabase;
-    private final ConcurrentHashMap<String, Boolean> podsAdded = new ConcurrentHashMap<>();
 
     PodResourceEventHandler(final BlockingQueue<PodEvent> flowable,
                             final PodEventsToDatabase podEventsToDatabase) {

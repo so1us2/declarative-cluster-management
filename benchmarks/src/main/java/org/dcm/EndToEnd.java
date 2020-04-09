@@ -20,7 +20,6 @@ import io.fabric8.kubernetes.api.model.PodSpec;
 import io.fabric8.kubernetes.api.model.PodStatus;
 import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
-import io.reactivex.processors.PublishProcessor;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -39,7 +38,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 @Warmup(iterations = 1, time = 1, timeUnit = TimeUnit.SECONDS)
@@ -58,15 +59,18 @@ public class EndToEnd {
 
     @State(Scope.Benchmark)
     public static class BenchmarkState {
-        @Nullable PublishProcessor<PodEvent> emitter = null;
+        @Nullable
+        BlockingQueue<PodEvent> emitter = null;
         @Nullable PodResourceEventHandler handler = null;
+        @Nullable PodEventsToDatabase podEventsToDatabase = null;
         @Nullable EmulatedPodToNodeBinder binder = null;
 
         @Setup(Level.Iteration)
         public void setUp() {
             final DBConnectionPool dbConnectionPool = new DBConnectionPool();
-            emitter = PublishProcessor.create();
-            handler = new PodResourceEventHandler(emitter);
+            emitter = new LinkedBlockingQueue<>();
+            podEventsToDatabase = new PodEventsToDatabase(dbConnectionPool);
+            handler = new PodResourceEventHandler(emitter, podEventsToDatabase);
             binder = new EmulatedPodToNodeBinder(dbConnectionPool);
             final int numNodes = 1000;
 
@@ -74,7 +78,8 @@ public class EndToEnd {
             final NodeResourceEventHandler nodeResourceEventHandler = new NodeResourceEventHandler(dbConnectionPool);
 
             final List<String> policies = Policies.getDefaultPolicies();
-            final Scheduler scheduler = new Scheduler(dbConnectionPool, policies, solverToUse, true, numThreads);
+            final Scheduler scheduler = new Scheduler(dbConnectionPool, podEventsToDatabase, policies, solverToUse,
+                                                     true, numThreads);
             scheduler.startScheduler(emitter, binder, 100, 500);
             for (int i = 0; i < numNodes; i++) {
                 final String nodeName = "n" + i;
