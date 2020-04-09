@@ -7,7 +7,6 @@
 package org.dcm;
 
 import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.reactivex.processors.PublishProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +20,7 @@ import java.util.concurrent.Executors;
  * it to the database unlike the NodeResourceEventHandler. We do this to have tigher control over
  * batching these writes to the database.
  */
-class PodResourceEventHandler implements ResourceEventHandler<Pod> {
+class PodResourceEventHandler {
     private static final Logger LOG = LoggerFactory.getLogger(PodResourceEventHandler.class);
     private final PublishProcessor<PodEvent> flowable;
     private final ExecutorService service;
@@ -42,33 +41,26 @@ class PodResourceEventHandler implements ResourceEventHandler<Pod> {
         flowable.onNext(new PodEvent(PodEvent.Action.ADDED, pod)); // might be better to add pods in a batch
     }
 
-    public void onUpdateSync(final Pod oldPod, final Pod newPod) {
-        final String oldPodScheduler = oldPod.getSpec().getSchedulerName();
-        final String newPodScheduler = oldPod.getSpec().getSchedulerName();
-        assert oldPodScheduler.equals(newPodScheduler);
-        LOG.debug("{} => {} pod update received", oldPod.getMetadata().getName(), newPod.getMetadata().getName());
+    public void onUpdateSync(final Pod newPod) {
+        LOG.debug("{} pod update received", newPod.getMetadata().getName());
         flowable.onNext(new PodEvent(PodEvent.Action.UPDATED, newPod));
     }
 
-    public void onDeleteSync(final Pod pod, final boolean deletedFinalStateUnknown) {
+    public void onDeleteSync(final Pod pod) {
         final long now = System.nanoTime();
-        LOG.debug("{} pod deleted ({}) in {}ns!", pod.getMetadata().getName(), deletedFinalStateUnknown,
-                                                  (System.nanoTime() - now));
+        LOG.debug("{} pod deleted in {}ns!", pod.getMetadata().getName(), (System.nanoTime() - now));
         flowable.onNext(new PodEvent(PodEvent.Action.DELETED, pod));
     }
 
-    @Override
     public void onAdd(final Pod pod) {
         service.execute(() -> onAddSync(pod));
     }
 
-    @Override
-    public void onUpdate(final Pod oldPod, final Pod newPod) {
-        service.execute(() -> onUpdateSync(oldPod, newPod));
+    public void onUpdate(final Pod newPod) {
+        service.execute(() -> onUpdateSync(newPod));
     }
 
-    @Override
-    public void onDelete(final Pod pod, final boolean deletedFinalStateUnknown) {
-        service.execute(() -> onDeleteSync(pod, deletedFinalStateUnknown));
+    public void onDelete(final Pod pod) {
+        service.execute(() -> onDeleteSync(pod));
     }
 }

@@ -44,7 +44,7 @@ public class SchedulerIT extends ITBase {
         final KubernetesStateSync stateSync = new KubernetesStateSync(fabricClient);
 
         final Flowable<PodEvent> eventStream = stateSync.setupInformersAndPodEventStream(dbConnectionPool);
-        scheduler.startScheduler(eventStream, new KubernetesBinder(fabricClient), 50, 1000);
+        scheduler.startScheduler(eventStream, new KubernetesBinder(fabricClient), 50, 50);
         stateSync.startProcessingEvents();
 
         // Add a new one

@@ -97,7 +97,7 @@ public class EmulatedPodDeployer implements IPodDeployer {
             final List<Pod> podsList = pods.get(deployment.getMetadata().getName());
             Preconditions.checkNotNull(podsList);
             for (final Pod pod: podsList) {
-                resourceEventHandler.onDeleteSync(pod, false);
+                resourceEventHandler.onDeleteSync(pod);
             }
         }
     }
