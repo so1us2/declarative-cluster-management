@@ -25,6 +25,7 @@ create table node_info
 create table pod_info
 (
   pod_name varchar(100) not null primary key,
+  uid varchar(36) null,
   status varchar(36) not null,
   node_name varchar(36) null,
   namespace varchar(100) not null,
@@ -207,6 +208,7 @@ create table pod_images
 create view pods_to_assign_no_limit as
 select
   pod_name,
+  uid,
   status,
   node_name as controllable__node_name,
   namespace,

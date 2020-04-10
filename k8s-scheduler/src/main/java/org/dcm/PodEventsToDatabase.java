@@ -185,6 +185,7 @@ class PodEventsToDatabase {
         final PodInfo p = Tables.POD_INFO;
         final InsertOnDuplicateSetMoreStep<PodInfoRecord> podInfoInsert = conn.insertInto(Tables.POD_INFO,
                 p.POD_NAME,
+                p.UID,
                 p.STATUS,
                 p.NODE_NAME,
                 p.NAMESPACE,
@@ -202,6 +203,7 @@ class PodEventsToDatabase {
                 p.EQUIVALENCE_CLASS,
                 p.QOS_CLASS)
                 .values(pod.getMetadata().getName(),
+                        pod.getMetadata().getUid(),
                         pod.getStatus().getPhase(),
                         pod.getSpec().getNodeName(),
                         pod.getMetadata().getNamespace(),
@@ -221,6 +223,7 @@ class PodEventsToDatabase {
                 )
                 .onDuplicateKeyUpdate()
                 .set(p.POD_NAME, pod.getMetadata().getName())
+                .set(p.UID, pod.getMetadata().getUid())
                 .set(p.STATUS, pod.getStatus().getPhase())
                 .set(p.NODE_NAME, pod.getSpec().getNodeName())
                 .set(p.NAMESPACE, pod.getMetadata().getNamespace())

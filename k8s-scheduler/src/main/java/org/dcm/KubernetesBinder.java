@@ -53,7 +53,7 @@ class KubernetesBinder implements IPodToNodeBinder {
         }
     }
 
-    public void bindOne(final String namespace, final String podName, final String nodeName) {
+    public void bindOne(final String namespace, final String podName, final String uid, final String nodeName) {
 //        final Binding binding = new Binding();
 //        final ObjectReference target = new ObjectReference();
 //        final ObjectMeta meta = new ObjectMeta();
@@ -68,22 +68,24 @@ class KubernetesBinder implements IPodToNodeBinder {
 
         final V1Binding body = new V1Binding();
         final V1ObjectReference target = new V1ObjectReference();
-        final V1ObjectMeta meta = new V1ObjectMeta();
         target.setKind("Node");
-        target.setApiVersion("v1");
         target.setName(nodeName);
+        final V1ObjectMeta meta = new V1ObjectMeta();
         meta.setName(podName);
-        body.setTarget(target);
+        meta.setNamespace(namespace);
+        meta.setUid(uid);
         body.setMetadata(meta);
+        body.setTarget(target);
         final long now = System.nanoTime();
         try {
             final V1Binding namespacedBinding =
-                    coreV1Api.createNamespacedPodBinding(podName, namespace, body, null, null, null);
-            LOG.info("Binding for pod {} to node {} took {}ns: response ---- {}",
-                    podName, nodeName, (System.nanoTime() - now), namespacedBinding);
+                coreV1Api.createNamespacedPodBinding(podName, namespace, body, null, null, null);
+            LOG.info("Binding for pod {}({}) to node {} took {}ns: response ---- {}",
+                    podName, uid, nodeName, (System.nanoTime() - now), namespacedBinding);
         } catch (final ApiException e) {
             e.printStackTrace();
-            LOG.error("Binding for pod {} to node {} failed ({}ns)", podName, nodeName, (System.nanoTime() - now), e);
+            LOG.error("Binding for pod {}({}) to node {} failed ({}ns)", podName, uid,
+                    nodeName, (System.nanoTime() - now), e);
         }
     }
 
@@ -94,7 +96,8 @@ class KubernetesBinder implements IPodToNodeBinder {
                     final String podName = r.get(Tables.PODS_TO_ASSIGN.POD_NAME);
                     final String namespace = r.get(Tables.PODS_TO_ASSIGN.NAMESPACE);
                     final String nodeName = r.get(Tables.PODS_TO_ASSIGN.CONTROLLABLE__NODE_NAME);
-                    bindOne(namespace, podName, nodeName);
+                    final String uid = r.get(Tables.PODS_TO_ASSIGN.UID);
+                    bindOne(namespace, podName, uid, nodeName);
                 }
             )
         ));
