@@ -59,6 +59,10 @@ public class Ops {
     public void increasing(final List<IntVar> data) {
         for (int i = 0; i < data.size() - 1; i++) {
             model.addLessOrEqual(data.get(i), data.get(i + 1));
+
+            final IntVar bool = model.newBoolVar("");
+            model.addLessThan(data.get(i), data.get(i + 1)).onlyEnforceIf(bool); // soft constraint to maximize
+            model.maximize(LinearExpr.term(bool, 100));
         }
     }
 
@@ -493,13 +497,10 @@ public class Ops {
         }
 
         // Cumulative score
-        final IntVar[] maximumOfEachResource = new IntVar[numResources];
         for (int i = 0; i < numResources; i++) {
             final IntVar max = model.newIntVar(0, Integer.MAX_VALUE, "");
             model.addCumulative(tasksIntervals, taskDemands.get(i), max);
-            maximumOfEachResource[i] = max;
+            model.minimize(max);
         }
-
-        model.minimize(LinearExpr.sum(maximumOfEachResource));   // minimize max score
     }
 }
