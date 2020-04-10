@@ -188,6 +188,9 @@ public final class Scheduler {
     }
 
     Result<? extends Record> runOneLoop() {
+        try (final DSLContext conn = dbConnectionPool.getConnectionToDb()) {
+            DebugUtils.dbDump(conn);
+        }
         final Timer.Context updateDataTimer = updateDataTimes.time();
         model.updateData();
         updateDataTimer.stop();
