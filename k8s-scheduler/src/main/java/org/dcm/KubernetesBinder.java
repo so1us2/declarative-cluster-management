@@ -65,6 +65,7 @@ class KubernetesBinder implements IPodToNodeBinder {
 //        binding.setMetadata(meta);
 //        final long now = System.nanoTime();
 //        client.bindings().inNamespace(namespace).create(binding).;
+
         final V1Binding body = new V1Binding();
         final V1ObjectReference target = new V1ObjectReference();
         final V1ObjectMeta meta = new V1ObjectMeta();
@@ -77,7 +78,7 @@ class KubernetesBinder implements IPodToNodeBinder {
         final long now = System.nanoTime();
         try {
             final V1Binding namespacedBinding =
-                    coreV1Api.createNamespacedBinding(namespace, body, null, null, null);
+                    coreV1Api.createNamespacedPodBinding(podName, namespace, body, null, null, null);
             LOG.info("Binding for pod {} to node {} took {}ns: response ---- {}",
                     podName, nodeName, (System.nanoTime() - now), namespacedBinding);
         } catch (final ApiException e) {
