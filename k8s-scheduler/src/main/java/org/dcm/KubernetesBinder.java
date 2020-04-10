@@ -87,6 +87,16 @@ class KubernetesBinder implements IPodToNodeBinder {
             LOG.error("Binding for pod {}({}) to node {} failed ({}ns)", podName, uid,
                     nodeName, (System.nanoTime() - now), e);
         }
+        try {
+            final V1Binding namespacedBinding =
+                    coreV1Api.createNamespacedPodBinding(podName, namespace, body, null, null, null);
+            LOG.info("RETRY Binding for pod {}({}) to node {} took {}ns: response ---- {}",
+                    podName, uid, nodeName, (System.nanoTime() - now), namespacedBinding);
+        } catch (final ApiException e) {
+            e.printStackTrace();
+            LOG.error("RETRY Binding for pod {}({}) to node {} failed ({}ns)", podName, uid,
+                    nodeName, (System.nanoTime() - now), e);
+        }
     }
 
     @Override
