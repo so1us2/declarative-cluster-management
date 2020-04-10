@@ -30,7 +30,7 @@ class KubernetesStateSync {
     private final SharedInformerFactory sharedInformerFactory;
     private final ThreadFactory namedThreadFactory =
             new ThreadFactoryBuilder().setNameFormat("flowable-thread-%d").build();
-    private final ExecutorService service = Executors.newFixedThreadPool(10, namedThreadFactory);
+    private final ExecutorService service = Executors.newFixedThreadPool(30, namedThreadFactory);
     private final KubernetesClient client;
 
     KubernetesStateSync(final KubernetesClient client) {

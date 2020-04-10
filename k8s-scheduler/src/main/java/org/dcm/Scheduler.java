@@ -152,10 +152,10 @@ public final class Scheduler {
                 });
                 conn.batch(updates).execute();
             }
-            LOG.info("Done with updates");
+            LOG.trace("Done with updates");
             // Next, issue bind requests for pod -> node_name
             binder.bindManyAsnc(podsToAssignUpdated);
-            LOG.info("Done with bindings");
+            LOG.trace("Done with bindings");
         }
     }
 

@@ -78,7 +78,7 @@ class NodeResourceEventHandler implements ResourceEventHandler<Node> {
             queries.addAll(addNodeImages(conn, node));
             conn.batch(queries).execute();
         }
-        LOG.info("{} node added in {}ms", node.getMetadata().getName(), (System.nanoTime() - now));
+        LOG.trace("{} node added in {}ms", node.getMetadata().getName(), (System.nanoTime() - now));
     }
 
     public void onUpdateSync(final Node oldNode, final Node newNode) {
@@ -118,7 +118,7 @@ class NodeResourceEventHandler implements ResourceEventHandler<Node> {
             }
             conn.batch(queries).execute();
         }
-        LOG.info("{} => {} node {} in {}ns", oldNode.getMetadata().getName(), newNode.getMetadata().getName(),
+        LOG.trace("{} => {} node {} in {}ns", oldNode.getMetadata().getName(), newNode.getMetadata().getName(),
                 hasChanged ? "updated" : "not updated", (System.nanoTime() - now));
     }
 
@@ -127,7 +127,7 @@ class NodeResourceEventHandler implements ResourceEventHandler<Node> {
         try (final DSLContext conn = dbConnectionPool.getConnectionToDb()) {
             deleteNode(node, conn);
         }
-        LOG.info("{} node deleted in {}ms", node.getMetadata().getName(), (System.nanoTime() - now));
+        LOG.trace("{} node deleted in {}ms", node.getMetadata().getName(), (System.nanoTime() - now));
     }
 
     private Insert<NodeInfoRecord> updateNodeRecord(final Node node, final DSLContext conn) {
