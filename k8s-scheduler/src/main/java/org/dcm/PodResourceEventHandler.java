@@ -37,15 +37,18 @@ class PodResourceEventHandler {
 
 
     public void onAddSync(final Pod pod) {
+        LOG.trace("{} pod add received", pod.getMetadata().getName());
         flowable.onNext(new PodEvent(PodEvent.Action.ADDED, pod)); // might be better to add pods in a batch
     }
 
     public void onUpdateSync(final Pod newPod) {
+        LOG.trace("{} pod update received", newPod.getMetadata().getName());
         flowable.onNext(new PodEvent(PodEvent.Action.UPDATED, newPod));
     }
 
     public void onDeleteSync(final Pod pod) {
         final long now = System.nanoTime();
+        LOG.trace("{} pod deleted in {}ns!", pod.getMetadata().getName(), (System.nanoTime() - now));
         flowable.onNext(new PodEvent(PodEvent.Action.DELETED, pod));
     }
 
