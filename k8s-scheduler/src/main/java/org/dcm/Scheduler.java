@@ -113,6 +113,7 @@ public final class Scheduler {
                         LOG.info("Triggering scheduleAllPendingPods()");
                         scheduleAllPendingPods(binder);
                         podsPlaced.remove(podName);
+                        Thread.sleep(100);
                     } catch (final InterruptedException e) {
                         Thread.currentThread().interrupt();
                         break;
