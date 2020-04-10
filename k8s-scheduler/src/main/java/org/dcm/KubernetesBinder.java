@@ -14,6 +14,8 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import org.dcm.k8s.generated.Tables;
 import org.jooq.Record;
 import org.jooq.Result;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,9 +27,12 @@ import java.util.concurrent.ThreadFactory;
  * Pod -> node binding implementation that works with a real Kubernetes cluster
  */
 class KubernetesBinder implements IPodToNodeBinder {
+    private static final Logger LOG = LoggerFactory.getLogger(KubernetesBinder.class);
     private final KubernetesClient client;
     private final ThreadFactory namedThreadFactory =
-            new ThreadFactoryBuilder().setNameFormat("bind-thread-%d").build();
+            new ThreadFactoryBuilder().setNameFormat("bind-thread-%d")
+                    .setUncaughtExceptionHandler((t, e) -> LOG.error("Binding exception {}", t.getName(), e))
+                    .build();
     private final ExecutorService service = Executors.newFixedThreadPool(10, namedThreadFactory);
 
     KubernetesBinder(final KubernetesClient client) {
@@ -44,7 +49,9 @@ class KubernetesBinder implements IPodToNodeBinder {
         meta.setName(podName);
         binding.setTarget(target);
         binding.setMetadata(meta);
+        final long now = System.nanoTime();
         client.bindings().inNamespace(namespace).create(binding);
+        LOG.info("Binding for pod {} to node {} took {}ns", podName, nodeName, (System.nanoTime() - now));
     }
 
     @Override
