@@ -112,7 +112,6 @@ public class Ops {
         return ret;
     }
 
-
     public IntVar plus(final int left, final IntVar right) {
         return plus(model.newConstant(left), right);
     }
@@ -487,20 +486,28 @@ public class Ops {
             vec -> Preconditions.checkArgument(vec.size() == (numTasks + capacities.get(0).size()))
         );
 
-        final List<int[]> taskDemands =
-                updatedDemands.stream().map(vec -> vec.stream().mapToInt(Integer::intValue).toArray())
-                        .collect(Collectors.toList());
+        // Scale demands by max-capacities. This normalizes all resource capacities/demands into the same range (0-100)
+        final List<int[]> taskDemands = new ArrayList<>(maxCapacities.size());
+        for (int i = 0; i < maxCapacities.size(); i++) {
+            final int capacity = maxCapacities.get(i);
+            final int[] scaledDemands = updatedDemands.get(i)
+                                         .stream().mapToInt(e -> (e * 100 / capacity))
+                                         .toArray();
+            taskDemands.add(scaledDemands);
+        }
 
         // 2. Capacity constraints
         for (int i = 0; i < numResources; i++) {
-            model.addCumulative(tasksIntervals, taskDemands.get(i), model.newConstant(maxCapacities.get(i)));
+            model.addCumulative(tasksIntervals, taskDemands.get(i), model.newConstant(100));
         }
 
         // Cumulative score
+        final IntVar[] maximumLoads = new IntVar[maxCapacities.size()];
         for (int i = 0; i < numResources; i++) {
-            final IntVar max = model.newIntVar(0, Integer.MAX_VALUE, "");
+            final IntVar max = model.newIntVar(0, 100, "");
             model.addCumulative(tasksIntervals, taskDemands.get(i), max);
-            model.minimize(max);
+            maximumLoads[i] = max;
         }
+        model.minimize(LinearExpr.sum(maximumLoads));
     }
 }

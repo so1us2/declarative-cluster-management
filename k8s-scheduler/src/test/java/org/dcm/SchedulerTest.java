@@ -821,6 +821,7 @@ public class SchedulerTest {
             final List<String> nodes = result.stream()
                                             .map(e -> e.getValue("CONTROLLABLE__NODE_NAME", String.class))
                                             .collect(Collectors.toList());
+            System.out.println(nodes);
             assertTrue(assertOn.test(nodes));
         } else {
             assertThrows(ModelException.class, scheduler::runOneLoop);
@@ -833,6 +834,7 @@ public class SchedulerTest {
         final Predicate<List<String>> onePodPerNode = nodes -> nodes.size() == Set.copyOf(nodes).size();
         final Predicate<List<String>> n2MustNotBeAssignedNewPods = nodes -> !nodes.contains("n2");
         final Predicate<List<String>> onlyN3MustBeAssignedNewPods = nodes -> Set.of("n3").equals(Set.copyOf(nodes));
+
         return Stream.of(
                 Arguments.of("One pod per node",
                              List.of(10, 10, 10, 10, 10), List.of(10, 10, 10, 10, 10),
@@ -857,6 +859,11 @@ public class SchedulerTest {
                 Arguments.of("Only memory requests, only soft constraints, pods must be spread out",
                         List.of(0, 0, 0), List.of(10, 10, 10),
                         List.of(1, 1, 1, 1, 1), List.of(100, 100, 100, 100, 100), false, true,
+                        onePodPerNode , true),
+
+                Arguments.of("Only memory requests (heterogeneous), only soft constraints, pods must be spread out",
+                        List.of(0, 0, 0), List.of(10, 10, 10),
+                        List.of(1, 1, 1, 1, 1), List.of(50, 70, 80, 90, 100), false, true,
                         onePodPerNode , true)
         );
     }
@@ -1049,10 +1056,10 @@ public class SchedulerTest {
         final PodEventsToDatabase unused = new PodEventsToDatabase(dbConnectionPool);
         final Scheduler scheduler = new Scheduler(dbConnectionPool, unused,
                 policies, "ORTOOLS", true, numThreads);
-        for (int i = 0; i < 100; i++) {
-            final Result<? extends Record> results = scheduler.runOneLoop();
-            System.out.println(results);
-        }
+        final Result<? extends Record> results = scheduler.runOneLoop();
+        System.out.println(results);
+        System.out.println(conn.selectFrom(Tables.POD_INFO).fetch().formatCSV());
+        System.out.println(conn.selectFrom(Tables.NODE_INFO).fetch());
     }
 
 
