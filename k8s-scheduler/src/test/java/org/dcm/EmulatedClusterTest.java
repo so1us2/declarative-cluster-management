@@ -65,9 +65,9 @@ class EmulatedClusterTest {
         for (int i = 0; i < numNodes; i++) {
             final String nodeName = "n" + i;
             final Node node = addNode(nodeName, Collections.emptyMap(), Collections.emptyList());
-            final int amount =  8 + ThreadLocalRandom.current().nextInt(0,10);
-            final int memory =  6000 + ThreadLocalRandom.current().nextInt(0,5000);
-            final int pods =  110 + ThreadLocalRandom.current().nextInt(0,50);
+            final int amount =  8 + ThreadLocalRandom.current().nextInt(0, 10);
+            final int memory =  6000 + ThreadLocalRandom.current().nextInt(0, 5000);
+            final int pods =  110 + ThreadLocalRandom.current().nextInt(0, 50);
             node.getStatus().getCapacity().put("cpu", new Quantity("" + amount));
             node.getStatus().getCapacity().put("memory", new Quantity("" + memory));
             node.getStatus().getCapacity().put("pods", new Quantity("" + pods));
