@@ -33,8 +33,8 @@ public class OrToolsIntervalsTest {
         final CpModel model = new CpModel();
 
         // Create the variables.
-        final int numTasks = 5;
-        final int numNodes = 3;
+        final int numTasks = 50;
+        final int numNodes = 1000;
         final IntVar[] taskToNodeAssignment = new IntVar[numTasks];
         final IntVar[] nodeIntervalEnd = new IntVar[numTasks];
         final IntervalVar[] tasksIntervals = new IntervalVar[numTasks];

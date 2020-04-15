@@ -1056,10 +1056,14 @@ public class SchedulerTest {
         final PodEventsToDatabase unused = new PodEventsToDatabase(dbConnectionPool);
         final Scheduler scheduler = new Scheduler(dbConnectionPool, unused,
                 policies, "ORTOOLS", true, numThreads);
+        scheduler.runOneLoop();
+        scheduler.runOneLoop();
+        scheduler.runOneLoop();
         final Result<? extends Record> results = scheduler.runOneLoop();
         System.out.println(results);
-        System.out.println(conn.selectFrom(Tables.POD_INFO).fetch().formatCSV());
-        System.out.println(conn.selectFrom(Tables.NODE_INFO).fetch());
+        System.out.println(conn.selectFrom(Tables.NODE_INFO).fetch().formatCSV());
+        System.out.println(conn.selectFrom(Tables.SPARE_CAPACITY_PER_NODE)
+                                .orderBy(Tables.SPARE_CAPACITY_PER_NODE.PODS_REMAINING).fetch().formatCSV());
     }
 
 
