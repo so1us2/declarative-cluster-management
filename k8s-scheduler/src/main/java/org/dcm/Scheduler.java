@@ -72,10 +72,12 @@ public final class Scheduler {
     private final DBConnectionPool dbConnectionPool;
     private final Map<String, Boolean> podsPlaced = new ConcurrentHashMap<>();
     private final ExecutorService schedulerExecutor = Executors.newSingleThreadExecutor(namedThreadFactory);
+    private final boolean debugMode;
 
     Scheduler(final DBConnectionPool dbConnectionPool, final PodEventsToDatabase podEventsToDatabase,
               final List<String> policies, final String solverToUse,
               final boolean debugMode, final int numThreads) {
+        this.debugMode = debugMode;
         final InputStream resourceAsStream = Scheduler.class.getResourceAsStream("/git.properties");
         try (final BufferedReader gitPropertiesFile = new BufferedReader(new InputStreamReader(resourceAsStream,
                 StandardCharsets.UTF_8))) {
@@ -188,8 +190,10 @@ public final class Scheduler {
     }
 
     Result<? extends Record> runOneLoop() {
-        try (final DSLContext conn = dbConnectionPool.getConnectionToDb()) {
-            DebugUtils.dbDump(conn);
+        if (debugMode) {
+            try (final DSLContext conn = dbConnectionPool.getConnectionToDb()) {
+                DebugUtils.dbDump(conn);
+            }
         }
         final Timer.Context updateDataTimer = updateDataTimes.time();
         model.updateData();
