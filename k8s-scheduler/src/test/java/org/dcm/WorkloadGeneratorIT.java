@@ -59,6 +59,7 @@ class WorkloadGeneratorIT extends ITBase {
     private static final int TIME_SCALE_DOWN_DEFAULT = 1000;
     private static final String START_TIME_CUTOFF = "startTimeCutOff";
     private static final int START_TIME_CUTOFF_DEFAULT = 1000;
+    private static final int START_TIME_SKIP_CUTOFF_DEFAULT = 20000;
 
     private final List<ListenableFuture<?>> deletions = new ArrayList<>();
     private final ListeningScheduledExecutorService scheduledExecutorService =
@@ -207,14 +208,17 @@ class WorkloadGeneratorIT extends ITBase {
                 final float cpu = Float.parseFloat(parts[4].replace(">", "")) / cpuScaleDown;
                 final float mem = Float.parseFloat(parts[5].replace(">", "")) / memScaleDown;
                 final int vmCount = Integer.parseInt(parts[6].replace(">", ""));
-
-                // generate a deployment's details based on cpu, mem requirements
-                final List<Pod> deployment = getDeployment(client, schedulerName, cpu, mem, vmCount, taskCount);
-                totalPods += deployment.size();
+                if (Integer.parseInt(parts[2]) < START_TIME_SKIP_CUTOFF_DEFAULT) { // window in seconds
+                    continue;
+                }
 
                 if (Integer.parseInt(parts[2]) > startTimeCutOff) { // window in seconds
                     break;
                 }
+                // generate a deployment's details based on cpu, mem requirements
+                final List<Pod> deployment = getDeployment(client, schedulerName, cpu, mem, vmCount, taskCount);
+                totalPods += deployment.size();
+
                 // get task time info
                 final long taskStartTime = (long) start * 1000; // converting to millisec
                 final long currentTime = System.currentTimeMillis();
